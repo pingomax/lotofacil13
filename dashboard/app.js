@@ -147,6 +147,7 @@ const NAV = [
   {g:"Supabase Cloud"},
   {id:"jogossalvos",t:"Jogos Salvos",i:"database"},
   {id:"pacientes",t:"Pacientes & Agendamentos",i:"users"},
+  {id:"sugestoes",t:"Caixa de Sugestões",i:"message-square"},
 ];
 const ROUTES = {};
 let current="home";
@@ -1152,6 +1153,101 @@ ROUTES.pacientes = (p)=>{
   },100);
 
   carregarPacientes();
+};
+
+/* ============================================================
+   ROTA: CAIXA DE SUGESTÕES
+   ============================================================ */
+ROUTES.sugestoes = function(p) {
+  p.innerHTML = '';
+  const head = el('div', 'page-head');
+  head.innerHTML = `<div><h2>Caixa de Sugestões</h2><p class="subtitle">Envie suas sugestões, feedbacks ou relatórios de melhoria diretamente para o desenvolvedor.</p></div>`;
+  p.appendChild(head);
+
+  const container = el('div', 'card');
+  container.style.maxWidth = '600px';
+  container.style.margin = '20px 0';
+  container.innerHTML = `
+    <h3>${icon('message-square')} Enviar Feedback / Sugestão</h3>
+    <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:15px">
+      Sua opinião é fundamental para a evolução do Dashboard da Lotofácil. As sugestões enviadas serão salvas no banco de dados e encaminhadas para <strong>agenorjesusjr@gmail.com</strong>.
+    </p>
+    <form id="formSugestao" style="display:flex; flex-direction:column; gap:12px">
+      <div>
+        <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px">Seu Nome (opcional)</label>
+        <input type="text" id="sugNome" placeholder="Ex: Maria Silva" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px">Seu E-mail (opcional)</label>
+        <input type="email" id="sugEmail" placeholder="seuemail@exemplo.com" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px">Sua Sugestão ou Mensagem *</label>
+        <textarea id="sugMensagem" required placeholder="Escreva aqui suas sugestões, novos recursos desejados ou relatórios de bugs..." style="width:100%; height:120px; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); resize:vertical"></textarea>
+      </div>
+      <button type="submit" id="btnEnviarSug" class="btn" style="align-self:flex-start">${icon('send')} Enviar Sugestão</button>
+    </form>
+    <div id="sugFeedback" style="margin-top:15px"></div>
+  `;
+  p.appendChild(container);
+
+  setTimeout(() => {
+    const form = $('#formSugestao');
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const nome = $('#sugNome').value.trim();
+        const email = $('#sugEmail').value.trim();
+        const mensagem = $('#sugMensagem').value.trim();
+        const btn = $('#btnEnviarSug');
+        const fb = $('#sugFeedback');
+
+        if (!mensagem) {
+          toast('Por favor, digite sua mensagem.');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `${icon('loader-2')} Enviando...`;
+
+        try {
+          // 1. Salva no Supabase
+          if (sbClient) {
+            const { error } = await sbClient.from('sugestoes').insert([{ nome, email, mensagem }]);
+            if (error) console.error("Erro Supabase sugestoes:", error);
+          }
+
+          // 2. Envio via FormSubmit / Mailto para garantir que chegue em agenorjesusjr@gmail.com
+          fetch('https://formsubmit.co/ajax/agenorjesusjr@gmail.com', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              _subject: "Nova Sugestão - Dashboard Lotofácil",
+              Nome: nome || "Anônimo",
+              Email: email || "Não informado",
+              Mensagem: mensagem
+            })
+          }).catch(err => console.log("FormSubmit fallback:", err));
+
+          toast('Sugestão enviada com sucesso! Obrigado pelo feedback. 🎉');
+          fb.innerHTML = `<div class="note good" style="margin-top:10px">${icon('check-circle')} Sua sugestão foi registrada e enviada para <strong>agenorjesusjr@gmail.com</strong>!</div>`;
+          $('#sugNome').value = '';
+          $('#sugEmail').value = '';
+          $('#sugMensagem').value = '';
+        } catch (err) {
+          console.error("Erro envio sugestão:", err);
+          toast('Ocorreu um erro ao enviar. Tente novamente.');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = `${icon('send')} Enviar Sugestão`;
+          refreshIcons();
+        }
+      };
+    }
+  }, 100);
 };
 
 /* ============================================================
