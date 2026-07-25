@@ -1251,6 +1251,48 @@ ROUTES.sugestoes = function(p) {
 };
 
 /* ============================================================
+   CONTADOR DE VISITANTES POR IP (SUPABASE)
+   ============================================================ */
+async function initVisitorCounter() {
+  const elVis = $('#visitorCount');
+  if (!elVis) return;
+
+  let ip = '';
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.ip) ip = data.ip;
+    }
+  } catch (e) {
+    console.log("Serviço ipify não disponível, contando via DB.");
+  }
+
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient.rpc('registrar_visita', { 
+        user_ip: ip, 
+        user_agent_text: navigator.userAgent || '' 
+      });
+      if (!error && data && data.length > 0) {
+        const stats = data[0];
+        elVis.textContent = `${stats.ips_unicos} IPs (${stats.total_visitas} visitas)`;
+        return;
+      }
+    } catch (err) {
+      console.error("Erro ao registrar visita via RPC:", err);
+    }
+
+    // Fallback se RPC falhar
+    const { data, error } = await sbClient.from('visitas').select('ip');
+    if (!error && data) {
+      const uniqueIPs = new Set(data.map(v => v.ip).filter(Boolean)).size;
+      elVis.textContent = `${uniqueIPs} IPs (${data.length} visitas)`;
+    }
+  }
+}
+
+/* ============================================================
    TEMA + SIDEBAR + BOOT
    ============================================================ */
 function setTheme(t){
@@ -1276,6 +1318,7 @@ function boot(){
   const hash=location.hash.slice(1);
   go(ROUTES[hash]?hash:'home');
   window.addEventListener('resize',()=>{if(current)charts.forEach(c=>c.resize());});
+  initVisitorCounter();
 }
 if(!D){document.getElementById('content').innerHTML='<div class="empty">Erro: dados.js não carregou. Verifique se o arquivo está na mesma pasta.</div>';}
 else{boot();}
