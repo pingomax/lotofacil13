@@ -7,14 +7,14 @@
 // ---- SUPABASE CLIENT ----
 const SUPABASE_URL = "https://zwweoxuxpcdxiugohsgv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_mz8zecMNnm9uhYJqr8IkpA_ZO-Oy9gH";
-let supabase = null;
-if (window.supabase) {
-  try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log("Supabase Client conectado com sucesso:", SUPABASE_URL);
-  } catch (e) {
-    console.error("Erro ao inicializar Supabase Client:", e);
+let sbClient = null;
+try {
+  if (window.supabase && window.supabase.createClient) {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("Supabase Client conectado:", SUPABASE_URL);
   }
+} catch (e) {
+  console.warn("Supabase SDK não disponível:", e);
 }
 
 const D = window.DADOS;
@@ -898,8 +898,8 @@ function renderJogos(container,jogos,iee,cfg){
     cp.onclick=()=>copy(g.map(pad).join(' '),`Jogo ${i+1} copiado`);
     const sbBtn=el('button','btn sm');sbBtn.innerHTML=`${icon('database')} Salvar no Supabase`;
     sbBtn.onclick=async ()=>{
-      if(!supabase){toast('Supabase não conectado');return;}
-      const { error } = await supabase.from('jogos_gerados').insert([{ dezenas: g, ie_score: iee[i], estrategia: `Modelo: ${cfg.modelo}` }]);
+      if(!sbClient){toast('Supabase não conectado');return;}
+      const { error } = await sbClient.from('jogos_gerados').insert([{ dezenas: g, ie_score: iee[i], estrategia: `Modelo: ${cfg.modelo}` }]);
       if(error) toast('Erro ao salvar: '+error.message);
       else toast(`Jogo ${i+1} salvo no Supabase! 🎉`);
     };
@@ -1052,12 +1052,12 @@ ROUTES.jogossalvos = (p)=>{
   p.appendChild(card);
 
   async function carregarJogos(){
-    if(!supabase){
+    if(!sbClient){
       listContainer.innerHTML='<p class="note">Supabase SDK não inicializado.</p>';
       return;
     }
     listContainer.innerHTML='<p class="note">Carregando do Supabase…</p>';
-    const { data, error } = await supabase.from('jogos_gerados').select('*').order('created_at',{ascending:false});
+    const { data, error } = await sbClient.from('jogos_gerados').select('*').order('created_at',{ascending:false});
     if(error){
       listContainer.innerHTML=`<p class="note bad">Erro ao carregar: ${error.message}</p>`;
       return;
@@ -1118,8 +1118,8 @@ ROUTES.pacientes = (p)=>{
 
   async function carregarPacientes(){
     const cont=$('#pacListContainer');
-    if(!supabase){cont.innerHTML='<p class="note">Supabase não inicializado.</p>';return;}
-    const { data: pacs, error } = await supabase.from('pacientes').select('*').order('created_at',{ascending:false});
+    if(!sbClient){cont.innerHTML='<p class="note">Supabase não inicializado.</p>';return;}
+    const { data: pacs, error } = await sbClient.from('pacientes').select('*').order('created_at',{ascending:false});
     if(error){cont.innerHTML=`<p class="note bad">Erro: ${error.message}</p>`;return;}
     if(!pacs || pacs.length===0){
       cont.innerHTML='<p class="note">Nenhum paciente cadastrado no banco do Supabase ainda.</p>';
@@ -1140,8 +1140,8 @@ ROUTES.pacientes = (p)=>{
       const cpf=$('#pacCpf').value;
       const tel=$('#pacTel').value;
       if(!nome){toast('Informe o nome do paciente');return;}
-      if(!supabase){toast('Supabase offline');return;}
-      const { error } = await supabase.from('pacientes').insert([{ nome, cpf, telefone: tel }]);
+      if(!sbClient){toast('Supabase offline');return;}
+      const { error } = await sbClient.from('pacientes').insert([{ nome, cpf, telefone: tel }]);
       if(error){toast('Erro: '+error.message);}
       else{
         toast('Paciente salvo no Supabase! 🎉');
