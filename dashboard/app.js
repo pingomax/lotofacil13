@@ -4,6 +4,19 @@
    ============================================================ */
 'use strict';
 
+// ---- SUPABASE CLIENT ----
+const SUPABASE_URL = "https://zwweoxuxpcdxiugohsgv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mz8zecMNnm9uhYJqr8IkpA_ZO-Oy9gH";
+let supabase = null;
+if (window.supabase) {
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("Supabase Client conectado com sucesso:", SUPABASE_URL);
+  } catch (e) {
+    console.error("Erro ao inicializar Supabase Client:", e);
+  }
+}
+
 const D = window.DADOS;
 const NUMS = Array.from({length:25}, (_,i)=>i+1);
 const CLS_ORDER = ["Muito quente","Quente","Neutra","Fria","Muito fria"];
@@ -131,6 +144,9 @@ const NAV = [
   {id:"gerador",t:"Gerador de jogos",i:"wand-2"},
   {id:"backtest",t:"Teste retrospectivo",i:"history"},
   {id:"conferencia",t:"Conferência",i:"check-circle-2"},
+  {g:"Supabase Cloud"},
+  {id:"jogossalvos",t:"Jogos Salvos",i:"database"},
+  {id:"pacientes",t:"Pacientes & Agendamentos",i:"users"},
 ];
 const ROUTES = {};
 let current="home";
@@ -877,10 +893,18 @@ function renderJogos(container,jogos,iee,cfg){
     card.appendChild(mm);
     const just=el('p','note');just.style.marginTop='8px';
     just.textContent=justificaJogo(g,cfg.modelo,cfg.pesos);
-    card.appendChild(just);
-    const cp=el('button','btn ghost sm');cp.style.marginTop='12px';cp.innerHTML=`${icon('copy')} Copiar`;
+    const btnBox=el('div');btnBox.style.cssText='display:flex;gap:8px;margin-top:12px;flex-wrap:wrap';
+    const cp=el('button','btn ghost sm');cp.innerHTML=`${icon('copy')} Copiar`;
     cp.onclick=()=>copy(g.map(pad).join(' '),`Jogo ${i+1} copiado`);
-    card.appendChild(cp);
+    const sbBtn=el('button','btn sm');sbBtn.innerHTML=`${icon('database')} Salvar no Supabase`;
+    sbBtn.onclick=async ()=>{
+      if(!supabase){toast('Supabase não conectado');return;}
+      const { error } = await supabase.from('jogos_gerados').insert([{ dezenas: g, ie_score: iee[i], estrategia: `Modelo: ${cfg.modelo}` }]);
+      if(error) toast('Erro ao salvar: '+error.message);
+      else toast(`Jogo ${i+1} salvo no Supabase! 🎉`);
+    };
+    btnBox.append(cp, sbBtn);
+    card.appendChild(btnBox);
     grid.appendChild(card);
   });
   container.appendChild(grid);
@@ -1014,6 +1038,120 @@ ROUTES.atualizar = (p)=>{
       });
   }
   btnCheck.onclick=verificar;verificar();
+};
+
+/* ============================================================
+   SUPABASE: JOGOS SALVOS E GESTÃO
+   ============================================================ */
+ROUTES.jogossalvos = (p)=>{
+  p.appendChild(el('p','page-intro','Jogos salvos diretamente na nuvem do Supabase PostgreSQL.'));
+  const card=el('div','card');
+  card.innerHTML=`<h3>${icon('database')}Jogos salvos no Supabase</h3>`;
+  const listContainer=el('div');listContainer.style.marginTop='16px';
+  card.appendChild(listContainer);
+  p.appendChild(card);
+
+  async function carregarJogos(){
+    if(!supabase){
+      listContainer.innerHTML='<p class="note">Supabase SDK não inicializado.</p>';
+      return;
+    }
+    listContainer.innerHTML='<p class="note">Carregando do Supabase…</p>';
+    const { data, error } = await supabase.from('jogos_gerados').select('*').order('created_at',{ascending:false});
+    if(error){
+      listContainer.innerHTML=`<p class="note bad">Erro ao carregar: ${error.message}</p>`;
+      return;
+    }
+    if(!data || data.length===0){
+      listContainer.innerHTML='<p class="note">Nenhum jogo salvo no Supabase ainda. Acesse o Gerador de Jogos para salvar!</p>';
+      return;
+    }
+    listContainer.innerHTML='';
+    const grid=el('div','grid two');
+    data.forEach((item, idx)=>{
+      const c=el('div','jogo-card');
+      c.innerHTML=`<div class="jogo-head"><span class="jn">Jogo #${data.length - idx}</span><span class="tag ok">IEE: ${item.ie_score || '—'}</span></div>`;
+      const chips=el('div','chips');
+      (item.dezenas||[]).forEach(n=>chips.appendChild(mkChip(n)));
+      c.appendChild(chips);
+      if(item.estrategia) c.appendChild(el('p','note',`Estratégia: ${item.estrategia}`));
+      grid.appendChild(c);
+    });
+    listContainer.appendChild(grid);
+    refreshIcons();
+  }
+  carregarJogos();
+};
+
+ROUTES.pacientes = (p)=>{
+  p.appendChild(el('p','page-intro','Módulo de Gestão: Pacientes e Agendamentos integrados com Supabase Database & Auth.'));
+  
+  const grid=el('div','grid two');
+  
+  // Card Novo Paciente
+  const cPac=el('div','card');
+  cPac.innerHTML=`<h3>${icon('user-plus')}Cadastrar Paciente</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+      <input id="pacNome" type="text" placeholder="Nome completo" style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <input id="pacCpf" type="text" placeholder="CPF" style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <input id="pacTel" type="text" placeholder="Telefone / WhatsApp" style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <button id="btnSalvarPac" class="btn">${icon('save')} Salvar Paciente</button>
+    </div>`;
+  grid.appendChild(cPac);
+
+  // Card Novo Agendamento
+  const cAg=el('div','card');
+  cAg.innerHTML=`<h3>${icon('calendar')}Novo Agendamento</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+      <input id="agData" type="datetime-local" style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <textarea id="agObs" placeholder="Observações da consulta" style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);height:80px"></textarea>
+      <button id="btnSalvarAg" class="btn">${icon('plus-circle')} Confirmar Horário</button>
+    </div>`;
+  grid.appendChild(cAg);
+
+  p.appendChild(grid);
+
+  // Tabela Pacientes Cadastrados
+  const cList=el('div','card');cList.style.marginTop='16px';
+  cList.innerHTML=`<h3>${icon('users')}Pacientes & Agendamentos no Supabase</h3><div id="pacListContainer" style="margin-top:12px"><p class="note">Carregando do Supabase…</p></div>`;
+  p.appendChild(cList);
+
+  async function carregarPacientes(){
+    const cont=$('#pacListContainer');
+    if(!supabase){cont.innerHTML='<p class="note">Supabase não inicializado.</p>';return;}
+    const { data: pacs, error } = await supabase.from('pacientes').select('*').order('created_at',{ascending:false});
+    if(error){cont.innerHTML=`<p class="note bad">Erro: ${error.message}</p>`;return;}
+    if(!pacs || pacs.length===0){
+      cont.innerHTML='<p class="note">Nenhum paciente cadastrado no banco do Supabase ainda.</p>';
+      return;
+    }
+    let html='<table class="tbl"><thead><tr><th>Nome</th><th>CPF</th><th>Telefone</th><th>Cadastrado em</th></tr></thead><tbody>';
+    pacs.forEach(pc=>{
+      html+=`<tr><td><b>${pc.nome}</b></td><td>${pc.cpf||'—'}</td><td>${pc.telefone||'—'}</td><td>${new Date(pc.created_at).toLocaleDateString('pt-BR')}</td></tr>`;
+    });
+    html+='</tbody></table>';
+    cont.innerHTML=html;
+  }
+
+  setTimeout(()=>{
+    const btnP=$('#btnSalvarPac');
+    if(btnP) btnP.onclick=async ()=>{
+      const nome=$('#pacNome').value;
+      const cpf=$('#pacCpf').value;
+      const tel=$('#pacTel').value;
+      if(!nome){toast('Informe o nome do paciente');return;}
+      if(!supabase){toast('Supabase offline');return;}
+      const { error } = await supabase.from('pacientes').insert([{ nome, cpf, telefone: tel }]);
+      if(error){toast('Erro: '+error.message);}
+      else{
+        toast('Paciente salvo no Supabase! 🎉');
+        $('#pacNome').value='';$('#pacCpf').value='';$('#pacTel').value='';
+        carregarPacientes();
+      }
+    };
+  },100);
+
+  carregarPacientes();
 };
 
 /* ============================================================
