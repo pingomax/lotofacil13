@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Lotofácil — Análise dos 300 concursos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">LF</div>
+      <div class="brand-txt"><strong>Lotofácil</strong><span>Dashboard analítico</span></div>
+      <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Fechar menu"><i data-lucide="x"></i></button>
+    </div>
+    <nav class="nav" id="nav" aria-label="Navegação principal"></nav>
+    <div class="sidebar-foot">Amostra: <span id="sbAmostra">—</span></div>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="menuBtn" aria-label="Abrir menu"><i data-lucide="menu"></i></button>
+      <h1 class="topbar-title" id="pageTitle">Visão geral</h1>
+      <div class="topbar-right">
+        <span class="period-badge" id="periodBadge" title="Período analisado">—</span>
+        <span class="status-badge" id="statusBadge"><i data-lucide="shield-check"></i> Dados válidos</span>
+        <button class="icon-btn" id="themeBtn" aria-label="Alternar tema"><i data-lucide="moon"></i></button>
+      </div>
+    </header>
+
+    <main class="content" id="content" tabindex="-1">
+      <div class="loading" id="loading"><div class="spinner"></div><p>Carregando análise…</p></div>
+    </main>
+
+    <footer class="disclaimer">
+      <i data-lucide="alert-triangle"></i>
+      <span>Sorteios são eventos aleatórios. Esta análise usa apenas padrões históricos e
+      <strong>não prevê resultados nem aumenta a probabilidade de ganho</strong>.</span>
+    </footer>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="dados.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
